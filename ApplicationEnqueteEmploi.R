@@ -22,7 +22,8 @@ library('fastDummies') # pour créer des dummies à partir de catégories
 #######################
 #######################
 
-data = read_sas("indiv171.sas7bdat")
+#data = read_sas("indiv171.sas7bdat")
+data = read_sas("/Users/jeremylhour/Documents/data/indiv171.sas7bdat")
 data = as.data.frame(data)
 
 # Outcome "Y", log du salaire mensuel net
@@ -95,8 +96,10 @@ X_2_names = c(names_continuous,names_categorical)
 data_use = data[complete.cases(data[,c(outcome,X_1_names,X_2_names)]),]
 
 Y = data_use[,outcome]
-X_1 = makeX(data.frame("EDUC"=data_use[,X_1_names]))
+X_1 = model.matrix(~. - 1, data = data.frame("EDUC"=as.factor(data_use[,X_1_names])), contrasts.arg = "EDUC")
+#X_1 = makeX(data.frame("EDUC"=as.factor(data_use[,X_1_names])))
 X_1 = X_1[,1:(ncol(X_1)-1)] # On enlève la modalité "sans diplôme" pour éviter les problèmes de colinéarité.
+
 
 # se poser la question de la gestion des NA pour les autres variables (X_2)
 #pre_X_2 = data_use[,X_2_names]
@@ -110,8 +113,17 @@ remove(data)
 remove(data_use)
 remove(one_hot_category)
 
-reg_simple = lm(Y ~ X_1)
+### Simple reg 
+coef_names = paste("X_1",colnames(X_1),sep="")
 
+reg_simple = lm(Y ~ X_1)
+tau_simple = reg_simple$coefficients[coef_names]
+
+### Full reg
+reg_full= lm(Y ~ X_1 + X_2)
+tau_full = reg_full$coefficients[coef_names]
+sigma_full = summary(reg_full)$coefficients[coef_names, 2]
+  
 ############################################
 ############################################
 ### ETAPE 1: Selection par rapport à "Y" ###
@@ -129,6 +141,9 @@ predict(outcome_selec,type="coef")
 
 set_Y = predict(outcome_selec,type="nonzero") # ensemble des coefficients non nuls à cette étape
 
+naive_reg = lm(Y ~ X_1 + X_2[,unlist(set_Y)]) # Naive regression
+tau_naive = naive_reg$coefficients[coef_names]
+
 ##################################################################
 ##################################################################
 ### ETAPE 2: Selection par rapport à "X_1" avec le group Lasso ###
@@ -142,7 +157,7 @@ set_Y = predict(outcome_selec,type="nonzero") # ensemble des coefficients non nu
 # Pour le Group Lasso il y a donc p groupes de variables
 
 X_1_vec = matrix(c(X_1), ncol=1)
-X_2_vec =  kronecker(diag(ncol(X_1)), X_2)
+X_2_vec =  kronecker(diag(ncol(X_1)), X_2) # ATTENTION: Prend 8.5 Go de place...
 group_index = rep(1:p,ncol(X_1))
 
 immunization_selec = grplasso(X_2_vec, X_1_vec, group_index, lambda=n*lambda, model=LinReg()) # ici la fonction objectif est differente, il faut multiplier la penalité par n
@@ -158,12 +173,8 @@ set_X1 = c(which(apply(Gamma_hat>0,1,sum)>0))
 #############################
 
 S_hat = sort(unique(unlist(union(set_Y,set_X1))))
-
 dbs_reg = lm(Y ~ X_1 + X_2[,S_hat])
-
-coef_names = paste("X_1",colnames(X_1),sep="")
 tau_hat = dbs_reg$coefficients[coef_names]
-tau_simple = reg_simple$coefficients[coef_names]
 
 ### Calcul de l'écart-type
 Gamma_hat = solve(t(X_2[,S_hat])%*%X_2[,S_hat]) %*% (t(X_2[,S_hat]) %*% X_1) # Regression post-lasso de chaque modalités de X_1
@@ -198,15 +209,25 @@ dip = data.frame("ID" = c("10","12","22","21","30","31","32","33","41","42","43"
             "lower_bound" = tau_hat + qnorm(0.025)*diag(sigma),
             "Coefficient" = tau_hat,
             "upper_bound" = tau_hat + qnorm(0.975) *diag(sigma),
-            "Moyenne" = tau_simple)
+            "Moyenne" = tau_simple,
+            "Naive" = tau_naive,
+            "Full" = tau_full,
+            "Full_lb" = tau_full + qnorm(0.025)*sigma_full,
+            "Full_ub" = tau_full + qnorm(0.975) *sigma_full)
 
 qplot(x    = Diplome,
-      y    = Coefficient,
-      data = dip) +
+      y    = Full,
+      data = dip,
+      color = "blue") +
+  geom_errorbar(aes(
+    ymin  = Full_lb,
+    ymax  = Full_ub,
+    width = 0.15), color="blue") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  scale_x_discrete(limits=rev(dip$Diplome)) +
+  #geom_point(aes(Diplome,Moyenne), color="red",fill="red",shape=25) +
+  geom_point(aes(Diplome,Coefficient), color="red",fill="red",shape=25) +
   geom_errorbar(aes(
     ymin  = lower_bound,
     ymax  = upper_bound,
-    width = 0.15)) +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
-  scale_x_discrete(limits=rev(dip$Diplome)) +
-  geom_point(aes(Diplome,Moyenne), color="red",fill="red",shape=25)
+    width = 0.15), color = "red") 
