@@ -2,10 +2,6 @@
 ### Jérémy L'Hour
 ### 29/05/2020
 
-### Attention: le group lasso nécessite énormément de mémoire, surtout pour constituer la matrice de design
-### Ensuite, cela prend un certain temps pour obtenir les resultats
-
-
 rm(list=ls())
 
 ### CHARGEMENT DES PACKAGES
@@ -154,7 +150,7 @@ tau_naive = naive_reg$coefficients[coef_names]
 ##################################################################
 
 # Cette seconde étape est plus compliquée: la variable X_1 possèdre plusieurs modalités,
-# Il faut donc binariser (les convertir en one-hot) et faire autant de régressions qu'il y a de modalités-1
+# Il faut donc binariser (les convertir en one-hot) et faire autant de régressions qu'il y a de modalités
 # On propose une approche Group-Lasso dans la mesure où l'on suppose que le schéma de sparsité est le même pour toutes ces régressions.
 # Cela nécessite de faire des régression empiler et de vectoriser la variable dépendante si on utilise le package grplasso, ce qui est très long.
 # Depuis group-lasso implémenté manuellement.

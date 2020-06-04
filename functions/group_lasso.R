@@ -1,6 +1,6 @@
 #' Group Lasso for categorical dependent variables
 #'
-#' Computes the Group Lasso for categorical dependent variables.
+#' Computes the Group Lasso for categorical dependent variables using FISTA.
 #' The number of groups is equal to the number of explanatory variables (p).
 #' Each group contains as many members as the number of modality for the dependent variable.
 #' Created: 04/06/2020
@@ -21,9 +21,7 @@
 #' 
 #' @author Jérémy L'Hour
 
-
 group_lasso <- function(X,y,lambda,nopen=NULL,tol=1e-8,maxIter=1000,trace=F){
-  
   ### Add intercept and do not penalize
   X = cbind(X,rep(1,nrow(X)))
   nopen = c(nopen,ncol(X))
@@ -51,14 +49,18 @@ group_lasso <- function(X,y,lambda,nopen=NULL,tol=1e-8,maxIter=1000,trace=F){
     v = (1-delta)*beta + delta*betaO
     
     # Show objective function value
-    if(trace==T & k%%100 == 0){ print(paste("Objective Func. Value at iteration",k,":",group_lasso_obj(beta,y,X,lambda,nopen))) }
+    if(trace==T & k%%100 == 0){
+      print(paste("Objective Func. Value at iteration",k,":",group_lasso_obj(beta,y,X,lambda,nopen)))
+      }
     
     # Break if diverges
     if(is.na(group_lasso_obj(beta,y,X,lambda,nopen) - group_lasso_obj(betaO,y,X,lambda,nopen))){
       cv = 0
-      print("LassoFISTA did not converge")
+      print("Group-Lasso did not converge")
       break
-    } else if(sum(abs(group_lasso_obj(beta,y,X,lambda,nopen)-group_lasso_obj(betaO,y,X,lambda,nopen))) < tol || k > maxIter) break
+    } else if(sum(abs(group_lasso_obj(beta,y,X,lambda,nopen)-group_lasso_obj(betaO,y,X,lambda,nopen))) < tol || k > maxIter){
+      break
+    } 
     
   }
   print(Sys.time()-t_start)
@@ -82,9 +84,9 @@ group_lasso <- function(X,y,lambda,nopen=NULL,tol=1e-8,maxIter=1000,trace=F){
 #################################
 #################################
 
-ls_grad_block <- function(mu,y,X) -2*t(X)%*%(y - X%*%mu) / nrow(X)
+ls_grad_block <- function(b,y,X) -2*t(X)%*%(y - X%*%b) / nrow(X)
 
-least_squares <- function(mu,y,X) mean((y - X%*%mu)^2)
+least_squares <- function(b,y,X) mean((y - X%*%b)^2)
 
 prox_vec <- function(x,lambda){
   if(sqrt(sum(x^2)) > lambda){
