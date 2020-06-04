@@ -14,6 +14,10 @@
 #' @param trace if TRUE print algorithm info.
 #' 
 #' @return beta argmin of the function.
+#' @return value Value of the function at argmin.
+#' @return loss Value of mean squared error.
+#' @return nbIter Number of iterations necessary for convergence.
+#' @return convergence 1 if convergence, 0 if not.
 #' 
 #' @author Jérémy L'Hour
 
@@ -32,6 +36,7 @@ group_lasso <- function(X,y,lambda,nopen=NULL,tol=1e-8,maxIter=1000,trace=F){
   v = beta
   cv = 1
   
+  t_start = Sys.time()
   k = 0
   repeat{
     k = k+1
@@ -56,6 +61,7 @@ group_lasso <- function(X,y,lambda,nopen=NULL,tol=1e-8,maxIter=1000,trace=F){
     } else if(sum(abs(group_lasso_obj(beta,y,X,lambda,nopen)-group_lasso_obj(betaO,y,X,lambda,nopen))) < tol || k > maxIter) break
     
   }
+  print(Sys.time()-t_start)
   
   if(k > maxIter){
     print("Max. number of iterations reach in Lasso minimization.")
