@@ -11,9 +11,12 @@ rm(list=ls())
 ### CHARGEMENT DES PACKAGES
 library('haven')
 library('glmnet')
-library('grplasso')
+library('grplasso') # pour group-lasso
 library("ggplot2")
 library('fastDummies') # pour créer des dummies à partir de catégories
+
+### Algorithme de calcul du group lasso, plus rapide que le package ici
+source('functions/group_lasso.R')
 
 
 #######################
@@ -156,6 +159,7 @@ tau_naive = naive_reg$coefficients[coef_names]
 # Cela nécessite de faire des régression empiler et de vectoriser la variable dépendante.
 # Pour le Group Lasso il y a donc p groupes de variables
 
+### VERSION A: avec le package grplasso -- ATTENTION TRES GOURMAND!
 X_1_vec = matrix(c(X_1), ncol=1)
 X_2_vec =  kronecker(diag(ncol(X_1)), X_2) # ATTENTION: Prend 8.5 Go de place...
 group_index = rep(1:p,ncol(X_1))
@@ -163,6 +167,10 @@ group_index = rep(1:p,ncol(X_1))
 immunization_selec = grplasso(X_2_vec, X_1_vec, group_index, lambda=n*lambda, model=LinReg()) # ici la fonction objectif est differente, il faut multiplier la penalité par n
 Gamma_hat = matrix(immunization_selec$coefficients, ncol=ncol(X_1))
 row.names(Gamma_hat) = colnames(X_2)
+
+### VERSION B: avec implémentation manuelle -- bien plus rapide
+immunization_selec_man = group_lasso(X_2,X_1,lambda=lambda,trace=TRUE)
+Gamma_hat = immunization_selec_man$beta[-p-1,]
 
 set_X1 = c(which(apply(Gamma_hat>0,1,sum)>0))
 
@@ -180,7 +188,7 @@ tau_hat = dbs_reg$coefficients[coef_names]
 Gamma_hat = solve(t(X_2[,S_hat])%*%X_2[,S_hat]) %*% (t(X_2[,S_hat]) %*% X_1) # Regression post-lasso de chaque modalités de X_1
 treat_residuals = X_1 - X_2[,S_hat] %*% Gamma_hat
 
-M_matrix = sweep(t(treat_residuals),MARGIN=2,dbs_reg$residuals,`*`) %*% t(sweep(t(treat_residuals),MARGIN=2,dbs_reg$residuals,`*`)) /(n - length(S_hat)-1)
+M_matrix = sweep(t(treat_residuals),MARGIN=2,dbs_reg$residuals,`*`) %*% t(sweep(t(treat_residuals),MARGIN=2,dbs_reg$residuals,`*`)) /(n - ncol(X_1) - length(S_hat) - 1)
 C_matrix = t(treat_residuals)%*%treat_residuals / n
 sigma = sqrt(solve(C_matrix) %*% M_matrix %*% solve(C_matrix)) / sqrt(n) 
 
