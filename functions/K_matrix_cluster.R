@@ -11,13 +11,15 @@
 K_matrix_cluster <- function(eps, cluster_var, df_adj=0){
   ID_list = unique(cluster_var) # unique cluster identifiers
   K_matrix = matrix(0, nrow = ncol(eps), ncol = ncol(eps))
+  t_start = Sys.time()
   pb = txtProgressBar(min = 0, max = length(ID_list), initial = 0) 
   for(i in 1:length(ID_list)){
     id = ID_list[i] # current cluster id
     cluster_size = sum(cluster_var == id) # cluster size
     K_matrix = K_matrix + t(matrix(eps[cluster_var == id,], nrow=cluster_size))%*%matrix(eps[cluster_var == id,], nrow = cluster_size) / cluster_size
     setTxtProgressBar(pb,i)
-    }
+  }
+  print(Sys.time()-t_start)
   K_matrix = K_matrix / (length(ID_list) - df_adj) # divide by the right thing
   return(K_matrix)
 }

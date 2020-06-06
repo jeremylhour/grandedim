@@ -2,21 +2,25 @@
 ### Jérémy L'Hour
 ### 29/05/2020
 
+# A FAIRE:
+# - clusteriser les ecarts types pour la régression complete
+
 rm(list=ls())
 
 ### CHARGEMENT DES PACKAGES
 library('aws.s3')
 library('haven')
 library('glmnet')
-library("ggplot2")
+library('ggplot2')
 library('fastDummies') # pour créer des dummies à partir de catégories
 # library('grplasso') # pour group-lasso, mais solution hyper longue
 
-setwd("/home/zctxti")
+#setwd("/home/zctxti")
+setwd("/Users/jeremylhour/Documents/code")
 
 ### Fonctions faites maison
 source('grandedim/functions/group_lasso.R') # Algorithme de calcul du group lasso, plus rapide que le package ici
-source('grandedim/functions/K_matrix_cluster.R') # Cluster
+source('grandedim/functions/K_matrix_cluster.R') # Cluster standard errors
 
 
 #######################
@@ -158,6 +162,7 @@ X_2_names = c(names_continuous,names_categorical)
 data_use = data[complete.cases(data[,c(outcome,X_1_names,X_2_names)]),]
 #save(data_use,file="data_use.Rda")
 #put_object(file="data_use.Rda", object="grandedim/data_use.Rda", bucket=bucket)
+load("/Users/jeremylhour/Documents/data/data_use.Rda")
 
 Y = data_use[,outcome]
 X_1 = model.matrix(~. - 1, data = data.frame("EDUC"=as.factor(data_use[,X_1_names])), contrasts.arg = "EDUC")
@@ -181,6 +186,13 @@ tau_simple = reg_simple$coefficients[coef_names]
 reg_full= lm(Y ~ X_1 + X_2)
 tau_full = reg_full$coefficients[coef_names]
 sigma_full = summary(reg_full)$coefficients[coef_names, 2]
+
+### Enlever les variables multicolinéaire
+full_residuals = X_1 - X_2%*%solve(t(X_2)%*%X_2 + 0.001*diag(ncol(X_2)))%*%(t(X_2) %*% X_1)
+
+K_matrix_full = K_matrix_cluster(eps=sweep(full_residuals,MARGIN=1,reg_full$residuals,`*`), cluster_var=ID_menage, df_adj=ncol(X_2) + ncol(X_1) + 1) # cluster au niveau du ménage
+J_matrix_full = t(full_residuals)%*%full_residuals / n
+sigma_full_cluster = sqrt(solve(J_matrix_full) %*% K_matrix_full %*% solve(J_matrix_full)) / sqrt(n) 
   
 ############################################
 ############################################
@@ -245,7 +257,7 @@ dbs_reg = lm(Y ~ X_1 + X_2[,S_hat])
 tau_hat = dbs_reg$coefficients[coef_names]
 
 ### Calcul de l'écart-type
-Gamma_hat = solve(t(X_2[,S_hat])%*%X_2[,S_hat] + 0.001*diag(length(S_hat))) %*% (t(X_2[,S_hat]) %*% X_1) # Regression post-lasso de chaque modalités de X_1
+Gamma_hat = solve(t(X_2[,S_hat])%*%X_2[,S_hat] + 0.001*diag(length(S_hat))) %*% (t(X_2[,S_hat]) %*% X_1) # Regression post-lasso de chaque modalités de X_1, on utilise un Ridge pour régulariser
 treat_residuals = X_1 - X_2[,S_hat] %*% Gamma_hat
 
 # M_matrix = t(sweep(treat_residuals,MARGIN=1,dbs_reg$residuals,`*`)) %*% sweep(treat_residuals,MARGIN=1,dbs_reg$residuals,`*`) /(n - ncol(X_1) - length(S_hat) - 1) # pas de cluster
