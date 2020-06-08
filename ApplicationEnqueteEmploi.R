@@ -3,12 +3,12 @@
 ### 29/05/2020
 
 # A FAIRE:
-# - clusteriser les ecarts types pour la régression complete
+# - gérer les problèmes au moment du clustering
 
 rm(list=ls())
 
 ### CHARGEMENT DES PACKAGES
-library('aws.s3')
+#library('aws.s3')
 library('haven')
 library('glmnet')
 library('ggplot2')
@@ -178,33 +178,49 @@ X_1 = X_1[,1:(ncol(X_1)-1)] # On enlève la modalité "sans diplôme" pour évit
 one_hot_category = dummy_cols(data_use[,names_categorical], remove_most_frequent_dummy=TRUE, remove_selected_columns=TRUE)
 X_2 = as.matrix(cbind(data_use[, names_continuous], one_hot_category))
 
-X_2 = X_2[,!duplicated(t(X_2))] # On enelève les colonnes dupliquées
-colinear = caret::findLinearCombos(X_2) 
+X_2 = X_2[,!duplicated(t(X_2))] # On enlève les colonnes dupliquées
+colinear = caret::findLinearCombos(cbind(X_1,X_2)) 
 X_2 = X_2[,-colinear$remove] # On enlève les colonnes multicolinéaires
+
+## colinear = caret::findLinearCombos(cbind(X_1,X_2)) 
 
 # Identifiants clustering
 ID_menage = data_use[,"IDENT"] # Identifiant du ménage, pour cluster dans les écart-types.
 ID_indiv = paste(data_use[,"IDENT"],data_use[,"NOI"],sep="_") # Identifiant individu.
 
+coef_names = paste("X_1",colnames(X_1),sep="")
+n = nrow(X_2); p = ncol(X_2)
+
 remove(data, data_use, one_hot_category)
 
-### Simple reg 
-coef_names = paste("X_1",colnames(X_1),sep="")
+#################################################
+#################################################
+### ETAPE 0: Régressions simples et complètes ###
+#################################################
+#################################################
 
+### Régression simple
 reg_simple = lm(Y ~ X_1)
 tau_simple = reg_simple$coefficients[coef_names]
 
-### Full reg
-n = nrow(X_2); p = ncol(X_2)
-
-reg_full= lm(Y ~ X_1 + X_2)
+### Régression complète
+reg_full = lm(Y ~ X_1 + X_2)
 tau_full = reg_full$coefficients[coef_names]
 sigma_full = summary(reg_full)$coefficients[coef_names, 2]
 
-full_residuals = X_1 - X_2%*%solve(t(X_2)%*%X_2 + 0.01*diag(ncol(X_2)))%*%(t(X_2) %*% X_1)
+X_2_tilde = cbind(X_2,rep(1,nrow(X_2))) # On ajoute la constante pour faire la régression partielle
 
-K_matrix_full = K_matrix_cluster(eps=sweep(full_residuals,MARGIN=1,reg_full$residuals,`*`), cluster_var=ID_menage, df_adj=ncol(X_2) + ncol(X_1) + 1) # cluster au niveau du ménage
-J_matrix_full = t(full_residuals)%*%full_residuals / n
+### UN CERTAIN NB DE PROBLEMES POUR CALCULER LES ECART-TYPES PAR CLUSTER
+FS_residuals = X_1 - X_2_tilde%*%solve(t(X_2_tilde)%*%X_2_tilde + 0.0001*diag(ncol(X_2_tilde)))%*%(t(X_2_tilde) %*% X_1)
+
+#for(j in 1:ncol(X_1)){
+#  print(paste("Régression numéro:",j))
+#  FS_reg = lm(X_1[,j] ~ X_2)
+#  FS_residuals[,j] = FS_reg$residuals
+#}
+
+K_matrix_full = K_matrix_cluster(eps=sweep(FS_residuals,MARGIN=1,reg_full$residuals,`*`), cluster_var=ID_menage, df_adj=ncol(X_2)+ncol(X_1)+1) # cluster au niveau du ménage
+J_matrix_full = t(FS_residuals)%*%FS_residuals / n
 sigma_full_cluster = sqrt(solve(J_matrix_full) %*% K_matrix_full %*% solve(J_matrix_full)) / sqrt(n) 
 sigma_full_cluster = diag(sigma_full_cluster)
 
@@ -252,7 +268,7 @@ lambda = 1.1*qnorm(1-.5*gamma_pen/(ncol(X_1)*p))/sqrt(ncol(X_1)*n) # niveau (the
 # Gamma_hat = matrix(immunization_selec$coefficients, ncol=ncol(X_1))
 # row.names(Gamma_hat) = colnames(X_2)
 
-### VERSION B: avec implémentation manuelle -- bien plus rapide
+### VERSION B: avec implémentation manuelle -- bien plus rapide, moins consommateur en mémoire
 immunization_selec_man = group_lasso(X_2,X_1,lambda=lambda,trace=TRUE)
 Gamma_hat = immunization_selec_man$beta[-p-1,]
 
@@ -268,11 +284,12 @@ S_hat = sort(union(set_X1,set_Y))
 dbs_reg = lm(Y ~ X_1 + X_2[,S_hat])
 tau_hat = dbs_reg$coefficients[coef_names]
 
-### Calcul de l'écart-type
-Gamma_hat = solve(t(X_2[,S_hat])%*%X_2[,S_hat] + 0.001*diag(length(S_hat))) %*% (t(X_2[,S_hat]) %*% X_1) # Regression post-lasso de chaque modalités de X_1, on utilise un Ridge pour régulariser
-treat_residuals = X_1 - X_2[,S_hat] %*% Gamma_hat
+### ATTENTION!!
+### Calcul de l'écart-type, pour cela il faut ajouter une constante à X_2, car on le fait à la main
+S_hat = c(S_hat,ncol(X_2_tilde)) # ajouter la constante
+Gamma_hat = solve(t(X_2_tilde[,S_hat])%*%X_2_tilde[,S_hat] + 0.001*diag(length(S_hat))) %*% (t(X_2_tilde[,S_hat]) %*% X_1) # Regression post-lasso de chaque modalités de X_1, on utilise un Ridge pour régulariser
+treat_residuals = X_1 - X_2_tilde[,S_hat] %*% Gamma_hat
 
-# M_matrix = t(sweep(treat_residuals,MARGIN=1,dbs_reg$residuals,`*`)) %*% sweep(treat_residuals,MARGIN=1,dbs_reg$residuals,`*`) /(n - ncol(X_1) - length(S_hat) - 1) # pas de cluster
 K_matrix = K_matrix_cluster(eps=sweep(treat_residuals,MARGIN=1,dbs_reg$residuals,`*`), cluster_var=ID_menage, df_adj=ncol(X_1) + length(S_hat) + 1) # cluster au niveau du ménage
 J_matrix = t(treat_residuals)%*%treat_residuals / n
 sigma = sqrt(solve(J_matrix) %*% K_matrix %*% solve(J_matrix)) / sqrt(n) 
