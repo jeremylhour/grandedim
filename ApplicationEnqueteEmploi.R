@@ -246,13 +246,13 @@ tau_naive = naive_reg$coefficients[coef_names]
 # Cette seconde étape est plus compliquée: la variable X_1 possèdre plusieurs modalités,
 # Il faut donc binariser (les convertir en one-hot) et faire autant de régressions qu'il y a de modalités
 # On propose une approche Group-Lasso dans la mesure où l'on suppose que le schéma de sparsité est le même pour toutes ces régressions.
-# Cela nécessite de faire des régression empiler et de vectoriser la variable dépendante si on utilise le package grplasso, ce qui est très long.
+# Cela nécessite de faire des régression empilées et de vectoriser la variable dépendante si on utilise le package grplasso, ce qui est très long.
 # Depuis group-lasso implémenté manuellement.
 # Pour le Group Lasso il y a donc p groupes de variables
 
 # ajustement de la pénalisation
 gamma_pen = .1/log(ncol(X_1)*max(p,n))
-lambda    = 1.1*qnorm(1-.5*gamma_pen/(ncol(X_1)*p))/sqrt(ncol(X_1)*n) # niveau (theorique) de penalisation Lasso
+lambda    = 1.1*qnorm(1-.5*gamma_pen/(ncol(X_1)*p))/sqrt(n) # niveau (theorique) de penalisation Lasso
 
 ### VERSION A: avec le package grplasso -- ATTENTION TRES GOURMAND!
 # X_1_vec = matrix(c(X_1), ncol=1)
@@ -323,15 +323,17 @@ dip = data.frame("ID" = c("10","12","22","21","30","31","32","33","41","42","43"
 
 dodge = position_dodge(.7)
 
+pdf(file="grandedim/plot/diplome_level.pdf", width=10, height=12)
 ggplot(data=dip, aes(x = Diplome, y = Full, group=ID)) +
   geom_point(color="blue",fill="blue",shape=16) +
   geom_errorbar(aes(ymin  = Full_lb, ymax  = Full_ub, width = 0.2), color="blue") +
-  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size=16)) +
   scale_x_discrete(limits=rev(dip$Diplome)) +
   geom_point(aes(x = Diplome, y = Coefficient, group=ID), color="red",fill="red",shape=16, position = dodge) +
   geom_errorbar(aes(ymin  = lower_bound, ymax  = upper_bound, group=ID, width = 0.2), color = "red", position = dodge) +
   geom_abline(slope=0,intercept=0) +
   labs(x = "Niveau de diplôme", y = "Impact mesuré")
+dev.off()
 
 # Avec l'estimateur de double sélection, on repère facilement quatre groupes:
 # 1) Sans diplôme / jusqu'au brevet des collèges,
