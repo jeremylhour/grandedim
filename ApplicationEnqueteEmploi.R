@@ -2,9 +2,6 @@
 ### Jérémy L'Hour
 ### 29/05/2020
 
-# A FAIRE:
-# - gérer les problèmes au moment du clustering
-
 rm(list=ls())
 
 ### CHARGEMENT DES PACKAGES
