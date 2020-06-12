@@ -5,12 +5,21 @@
 rm(list=ls())
 
 ### CHARGEMENT DES PACKAGES
+<<<<<<< HEAD
+=======
+library('aws.s3')
+>>>>>>> 06cbe5e4410ca5cc196624222f43f50808111e29
 library('glmnet')
 library('fastDummies') # pour créer des dummies à partir de catégories
 library('caret') # pour utiliser la fonction qui repère les variables colinéaires
 
+<<<<<<< HEAD
 #setwd("/home/zctxti")
 setwd("/Users/jeremylhour/Documents/code")
+=======
+setwd("/home/zctxti")
+#setwd("/Users/jeremylhour/Documents/code")
+>>>>>>> 06cbe5e4410ca5cc196624222f43f50808111e29
 
 ###########################
 ###########################
@@ -18,7 +27,17 @@ setwd("/Users/jeremylhour/Documents/code")
 ###########################
 ###########################
 
+<<<<<<< HEAD
 load("/Users/jeremylhour/Documents/data/data_ee.Rda")
+=======
+bucket = "groupe-1006"
+files = get_bucket(bucket = bucket, prefix = "grandedim/")
+save_object(bucket = bucket,  prefix = "grandedim/", object="grandedim/data_ee.Rda" ,file="grandedim/data_ee.Rda")
+
+load("grandedim/data_ee.Rda")
+
+data_use = data_ee
+>>>>>>> 06cbe5e4410ca5cc196624222f43f50808111e29
 
 # Label des variabesl utilisées
 outcome = "LOG_SAL"
@@ -60,6 +79,10 @@ remove(data_use, one_hot_category)
 
 ### Régression simple
 reg_simple = lm(Y ~ X_1)
+<<<<<<< HEAD
+=======
+summary(reg_simple)
+>>>>>>> 06cbe5e4410ca5cc196624222f43f50808111e29
 tau_simple = reg_simple$coefficients[coef_names]
 
 
