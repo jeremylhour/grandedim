@@ -4,6 +4,8 @@ Codes pour la formation "économétrie en grande dimension" (Insee, 2020), prév
 
 Document "L'économétrie en grande dimension" servant de support de cours, disponible à cette adresse: https://sites.google.com/site/jeremylhour/research .
 
+Repo officiel: https://github.com/jlhourENSAE/grandedim.git 
+
 ## Plan de la formation:
 
 ### Jour 1 -- 9h30-12h:
@@ -24,3 +26,8 @@ Document "L'économétrie en grande dimension" servant de support de cours, disp
 ### Jour 2 -- 13h30-17h:
 - Hétérogénéité des effets [Section 4],
 - **Application empirique**: [effet du vote sur la propension à économiser l'eau](GenericML-example.R) ou retour sur l'application Enquête Emploi selon le temps restant.
+
+
+## Autres morceaux de code utiles:
+- [Code pour calculer le Lasso avec l'algorithme FISTA](functions/LassoFISTA.R)
+- [Code pour calculer le Group Lasso avec l'algorithme FISTA](functions/group_lasso.R)
