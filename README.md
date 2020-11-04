@@ -2,9 +2,9 @@
 
 Codes pour la formation "économétrie en grande dimension" (Insee, 2020), prévue les 29 et 30 septembre 2020.
 
-Document "L'économétrie en grande dimension" servant de support de cours, disponible à cette adresse: https://sites.google.com/site/jeremylhour/research .
+Document "L'économétrie en grande dimension" servant de support de cours, disponible à cette adresse: https://www.insee.fr/fr/statistiques/4923129 .
 
-Repo officiel: https://github.com/jlhourENSAE/grandedim.git 
+Repo officiel: https://github.com/InseeFrLab/grandedim
 
 ## Plan de la formation:
 
